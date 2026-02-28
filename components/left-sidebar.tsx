@@ -81,6 +81,9 @@ export function LeftSidebar() {
         <Link href="/leaderboard" className="rounded-md px-3 py-2 text-sm font-medium text-foreground hover:bg-accent">
           Leaderboard
         </Link>
+        <Link href="/subscribe" className="rounded-md bg-[#008751]/10 px-3 py-2 text-sm font-medium text-[#008751] hover:bg-[#008751]/20">
+          Upgrade to Pro
+        </Link>
       </div>
     </aside>
   )

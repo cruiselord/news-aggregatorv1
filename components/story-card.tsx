@@ -38,11 +38,13 @@ export function StoryCard({ story }: StoryCardProps) {
             </p>
           </div>
           <div className="mt-3 flex items-center gap-4">
-            <BiasBar
-              proGov={story.biasBreakdown.proGov}
-              independent={story.biasBreakdown.independent}
-              opposition={story.biasBreakdown.opposition}
-            />
+            <div className="min-w-0 flex-1">
+              <BiasBar
+                proGov={story.biasBreakdown.proGov}
+                independent={story.biasBreakdown.independent}
+                opposition={story.biasBreakdown.opposition}
+              />
+            </div>
             <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" /> {story.readTime}
             </span>
