@@ -1,13 +1,76 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Search, Bell, Star } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { Search, Bell, Star, Moon, Sun } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { supabase } from "@/lib/supabaseClient"
+import { useTheme } from "next-themes"
 
 export function Navbar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [user, setUser] = useState<any | null>(null)
+  const [profile, setProfile] = useState<any | null>(null)
+  const [mounted, setMounted] = useState(false)
+  const { theme, setTheme } = useTheme()
+
+  useEffect(() => {
+    let mounted = true
+
+    async function load() {
+      const { data: authData } = await supabase.auth.getUser()
+      const current = authData?.user ?? null
+      if (!mounted) return
+      setUser(current)
+
+      if (current) {
+        const { data: prof } = await supabase
+          .from("user_profiles")
+          .select("display_name, avatar_url, naira_points")
+          .eq("id", current.id)
+          .maybeSingle()
+
+        if (mounted) setProfile(prof ?? null)
+      } else {
+        setProfile(null)
+      }
+    }
+
+    load()
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        setUser(null)
+        setProfile(null)
+      } else if (event === "SIGNED_IN" && session?.user) {
+        setUser(session.user)
+        // fetch profile for signed-in user
+        supabase
+          .from("user_profiles")
+          .select("display_name, avatar_url, naira_points")
+          .eq("id", session.user.id)
+          .maybeSingle()
+          .then(({ data }) => setProfile(data ?? null))
+      }
+    })
+
+    return () => {
+      mounted = false
+      listener?.subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    router.push("/")
+  }
 
   return (
     <header className="sticky top-0 z-50 flex h-16 w-full items-center border-b border-border bg-card">
@@ -33,6 +96,18 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            aria-label="Toggle dark mode"
+          >
+            {mounted && theme === "dark" ? (
+              <Sun className="h-5 w-5 text-foreground" />
+            ) : (
+              <Moon className="h-5 w-5 text-foreground" />
+            )}
+          </Button>
           <Link href="/quiz">
             <Button
               size="sm"
@@ -48,14 +123,40 @@ export function Navbar() {
               <span className="sr-only">Notifications</span>
             </Link>
           </Button>
-          <Link href="/profile" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#008751] text-xs font-bold text-[#ffffff]">
-              AO
+
+          {user ? (
+            <div className="flex items-center gap-3">
+              <Link href="/profile" className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#008751] text-xs font-bold text-[#ffffff]">
+                  {profile?.display_name
+                    ? String(profile.display_name)
+                        .split(" ")
+                        .map((s: string) => s[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase()
+                    : (user.email || "").slice(0, 2).toUpperCase()}
+                </div>
+                <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+                  <Star className="h-3.5 w-3.5 text-[#FFD700]" /> {profile?.naira_points ?? 0} NP
+                </span>
+              </Link>
+              <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                Logout
+              </Button>
             </div>
-            <span className="flex items-center gap-1 text-sm font-medium text-foreground">
-              <Star className="h-3.5 w-3.5 text-[#FFD700]" /> 240 NP
-            </span>
-          </Link>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link href="/auth/login">
+                <Button variant="ghost" size="sm">
+                  Sign in
+                </Button>
+              </Link>
+              <Link href="/auth/signup">
+                <Button size="sm">Sign up</Button>
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </header>
