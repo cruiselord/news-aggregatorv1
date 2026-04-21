@@ -1,13 +1,15 @@
 "use client"
 
-import { useState, use } from "react"
+import { useEffect, useState, use } from "react"
 import Link from "next/link"
 import { Check } from "lucide-react"
-import { stories, topics, sources } from "@/lib/mock-data"
+import { supabase } from "@/lib/supabaseClient"
+import { topics } from "@/lib/mock-data"
 import { StoryCard } from "@/components/story-card"
 import { BiasBar } from "@/components/bias-bar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import type { Story, BiasType } from "@/lib/types"
 import {
   LineChart,
   Line,
@@ -34,19 +36,136 @@ const biasChartData = [
   { week: "W4", proGov: 32, independent: 48, opposition: 20 },
 ]
 
+type TopicRow = {
+  id: string
+  name: string
+  slug: string
+  icon: string | null
+  article_count: number | null
+}
+
+type StoryClusterRow = {
+  id: string
+  headline: string
+  ai_summary: string | null
+  image_url?: string | null
+  topics: string[] | null
+  is_blindspot: boolean | null
+  blindspot_type: string | null
+  pro_gov_coverage: number | null
+  independent_coverage: number | null
+  opposition_coverage: number | null
+  article_count: number | null
+  created_at: string
+}
+
+type SourceRow = {
+  id: string
+  name: string
+  bias_label: string | null
+}
+
+import { classifyBias } from "@/lib/utils"
+
+function mapClusterToStory(row: StoryClusterRow): Story {
+  const biasTotal =
+    (row.pro_gov_coverage ?? 0) +
+      (row.independent_coverage ?? 0) +
+      (row.opposition_coverage ?? 0) || 1
+
+  const biasBreakdown = {
+    proGov: Math.round(((row.pro_gov_coverage ?? 0) / biasTotal) * 100),
+    independent: Math.round(
+      ((row.independent_coverage ?? 0) / biasTotal) * 100
+    ),
+    opposition: Math.round(
+      ((row.opposition_coverage ?? 0) / biasTotal) * 100
+    ),
+  }
+
+  const blindspotPercent = row.is_blindspot
+    ? Math.max(
+        biasBreakdown.proGov,
+        biasBreakdown.independent,
+        biasBreakdown.opposition
+      )
+    : undefined
+
+  return {
+    id: row.id,
+    headline: row.headline,
+    summary: row.ai_summary ?? "",
+    sourceCount: row.article_count ?? 0,
+    readTime: "5 min",
+    isBlindspot: Boolean(row.is_blindspot),
+    blindspotPercent,
+    blindspotSide: row.blindspot_type ?? undefined,
+    thumbnail: row.image_url ?? "/placeholder-news-1.jpg",
+    date: new Date(row.created_at).toLocaleDateString("en-NG", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }),
+    biasBreakdown,
+    topic: (row.topics?.[0] ?? "politics") as string,
+  }
+}
+
 export default function TopicPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
   const [following, setFollowing] = useState(false)
   const [activeSubTopic, setActiveSubTopic] = useState("All")
 
-  const topic = topics.find((t) => t.slug === slug) || topics[0]
-  const topicStories = stories.filter(
-    (s) => s.topic === slug || slug === topic.slug
-  )
-  const mostDebated = [...topicStories].sort(
-    (a, b) => Math.abs(a.biasBreakdown.proGov - a.biasBreakdown.opposition) -
-              Math.abs(b.biasBreakdown.proGov - b.biasBreakdown.opposition)
-  ).slice(0, 2)
+  const [topic, setTopic] = useState<TopicRow | null>(null)
+  const [topicStories, setTopicStories] = useState<Story[]>([])
+  const [topSources, setTopSources] = useState<
+    { id: string; name: string; bias: BiasType }[]
+  >([])
+  // derived data
+  // stories with highest source count (i.e. most debated)
+  const mostDebated = [...topicStories]
+    .sort((a, b) => b.sourceCount - a.sourceCount)
+    .slice(0, 5)
+
+  useEffect(() => {
+    async function load() {
+      const [{ data: topicRow }, { data: clusters }, { data: sourceRows }] =
+        await Promise.all([
+          supabase
+            .from("topics")
+            .select("*")
+            .eq("slug", slug)
+            .maybeSingle(),
+          supabase
+            .from("story_clusters")
+            .select("*")
+            .contains("topics", [slug])
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("sources")
+            .select("id, name, bias_label")
+            .order("name", { ascending: true }),
+        ])
+
+      if (topicRow) {
+        setTopic(topicRow as TopicRow)
+      }
+
+      setTopicStories(
+        (clusters ?? []).map((c) => mapClusterToStory(c as StoryClusterRow))
+      )
+
+      setTopSources(
+        (sourceRows ?? []).slice(0, 5).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          bias: classifyBias(s.bias_label),
+        }))
+      )
+    }
+
+    load()
+  }, [slug])
 
   const pills = subTopics[slug] || subTopics.politics
 
@@ -58,11 +177,13 @@ export default function TopicPage({ params }: { params: Promise<{ slug: string }
         <div className="rounded-lg border border-border bg-card p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-3xl">{topic.icon}</span>
+              <span className="text-3xl">{topic?.icon ?? "📄"}</span>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">{topic.name}</h1>
+                <h1 className="text-2xl font-bold text-foreground">
+                  {topic?.name ?? slug}
+                </h1>
                 <p className="text-sm text-muted-foreground">
-                  {topic.storyCount} stories this week from 38 Nigerian sources
+                  {topicStories.length} stories from Nigerian sources
                 </p>
               </div>
             </div>
@@ -138,7 +259,7 @@ export default function TopicPage({ params }: { params: Promise<{ slug: string }
             Top Sources on {topic.name}
           </h3>
           <ul className="flex flex-col gap-2">
-            {sources.slice(0, 5).map((source, i) => (
+            {topSources.map((source, i) => (
               <li key={source.id}>
                 <Link href={`/source/${source.id}`} className="flex items-center justify-between text-sm text-foreground hover:text-[#008751]">
                   <span>{i + 1}. {source.name}</span>

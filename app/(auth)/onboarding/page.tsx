@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Check } from "lucide-react"
-import { topics, sources, nigerianStates } from "@/lib/mock-data"
+import { supabase } from "@/lib/supabaseClient"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -15,12 +15,81 @@ const biasColors: Record<string, { bg: string; text: string }> = {
   opposition: { bg: "bg-[#B71C1C]/10", text: "text-[#B71C1C]" },
 }
 
+const nigerianStates = [
+  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa",
+  "Benue", "Borno", "Cross River", "Delta", "Ebonyi", "Edo",
+  "Ekiti", "Enugu", "FCT", "Gombe", "Imo", "Jigawa",
+  "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara",
+  "Lagos", "Nasarawa", "Niger", "Ogun", "Ondo", "Osun",
+  "Oyo", "Plateau", "Rivers", "Sokoto", "Taraba", "Yobe", "Zamfara",
+]
+
 export default function OnboardingPage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [selectedTopics, setSelectedTopics] = useState<string[]>([])
   const [followedSources, setFollowedSources] = useState<string[]>([])
   const [selectedState, setSelectedState] = useState("")
+
+  const [topics, setTopics] = useState<
+    { id: string; name: string; slug: string; icon: string | null }[]
+  >([])
+  const [sources, setSources] = useState<
+    { id: string; name: string; bias_label: string | null; bias: string }[]
+  >([])
+  const [loadingOptions, setLoadingOptions] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      setLoadError(null)
+      setLoadingOptions(true)
+      const [{ data: topicRows, error: topicError }, { data: sourceRows, error: sourceError }] = await Promise.all([
+        supabase
+          .from("topics")
+          .select("id, name, slug, icon")
+          .order("name", { ascending: true }),
+        supabase
+          .from("sources")
+          .select("id, name, bias_label")
+          .order("name", { ascending: true }),
+      ])
+
+      if (topicError || sourceError) {
+        setLoadError(topicError?.message ?? sourceError?.message ?? "Failed to load onboarding options")
+      }
+
+      const dbTopics = (topicRows ?? []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        icon: t.icon,
+      }))
+
+      setTopics(dbTopics)
+
+      const dbSources = (sourceRows ?? []).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          bias_label: s.bias_label,
+          bias: (s.bias_label ?? "Independent")
+            .toString()
+            .toLowerCase()
+            .includes("opposition")
+            ? "opposition"
+            : (s.bias_label ?? "Independent")
+                .toString()
+                .toLowerCase()
+                .includes("pro-federal")
+            ? "pro-gov"
+            : "independent",
+      }))
+      setSources(dbSources)
+      setLoadingOptions(false)
+    }
+
+    load()
+  }, [])
 
   const toggleTopic = (slug: string) => {
     setSelectedTopics((prev) =>
@@ -57,26 +126,32 @@ export default function OnboardingPage() {
           <div>
             <h2 className="mb-2 text-xl font-bold text-foreground">Choose Your Topics</h2>
             <p className="mb-6 text-sm text-muted-foreground">Select topics you want to follow</p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {topics.map((topic) => {
-                const selected = selectedTopics.includes(topic.slug)
-                return (
-                  <button
-                    key={topic.slug}
-                    onClick={() => toggleTopic(topic.slug)}
-                    className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-colors ${
-                      selected
-                        ? "border-[#008751] bg-[#008751]/5"
-                        : "border-border bg-card hover:bg-accent"
-                    }`}
-                  >
-                    <span className="text-2xl">{topic.icon}</span>
-                    <span className="text-sm font-medium text-foreground">{topic.name}</span>
-                    {selected && <Check className="h-4 w-4 text-[#008751]" />}
-                  </button>
-                )
-              })}
-            </div>
+            {loadingOptions ? (
+              <p className="text-sm text-muted-foreground">Loading topics...</p>
+            ) : topics.length === 0 ? (
+              <p className="text-sm text-[#B71C1C]">No topics available in database.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {topics.map((topic) => {
+                  const selected = selectedTopics.includes(topic.slug)
+                  return (
+                    <button
+                      key={topic.slug}
+                      onClick={() => toggleTopic(topic.slug)}
+                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-colors ${
+                        selected
+                          ? "border-[#008751] bg-[#008751]/5"
+                          : "border-border bg-card hover:bg-accent"
+                      }`}
+                    >
+                      <span className="text-2xl">{topic.icon}</span>
+                      <span className="text-sm font-medium text-foreground">{topic.name}</span>
+                      {selected && <Check className="h-4 w-4 text-[#008751]" />}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -85,38 +160,44 @@ export default function OnboardingPage() {
           <div>
             <h2 className="mb-2 text-xl font-bold text-foreground">Follow Nigerian Sources</h2>
             <p className="mb-6 text-sm text-muted-foreground">Choose outlets to follow in your feed</p>
-            <div className="flex flex-col gap-2">
-              {sources.map((source) => {
-                const followed = followedSources.includes(source.id)
-                const style = biasColors[source.bias]
-                return (
-                  <div
-                    key={source.id}
-                    className="flex items-center justify-between rounded-lg border border-border bg-card p-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${style.bg} font-bold ${style.text}`}>
-                        {source.name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{source.name}</p>
-                        <Badge className={`${style.bg} ${style.text} text-xs capitalize`}>
-                          {source.bias.replace("-", " ")}
-                        </Badge>
-                      </div>
-                    </div>
-                    <Button
-                      variant={followed ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleSource(source.id)}
-                      className={followed ? "bg-[#008751] text-[#ffffff] hover:bg-[#008751]/90" : ""}
+            {loadingOptions ? (
+              <p className="text-sm text-muted-foreground">Loading sources...</p>
+            ) : sources.length === 0 ? (
+              <p className="text-sm text-[#B71C1C]">No sources available in database.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {sources.map((source) => {
+                  const followed = followedSources.includes(source.id)
+                  const style = biasColors[source.bias]
+                  return (
+                    <div
+                      key={source.id}
+                      className="flex items-center justify-between rounded-lg border border-border bg-card p-3"
                     >
-                      {followed ? "Following" : "Follow"}
-                    </Button>
-                  </div>
-                )
-              })}
-            </div>
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${style.bg} font-bold ${style.text}`}>
+                          {source.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{source.name}</p>
+                          <Badge className={`${style.bg} ${style.text} text-xs capitalize`}>
+                            {source.bias.replace("-", " ")}
+                          </Badge>
+                        </div>
+                      </div>
+                      <Button
+                        variant={followed ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => toggleSource(source.id)}
+                        className={followed ? "bg-[#008751] text-[#ffffff] hover:bg-[#008751]/90" : ""}
+                      >
+                        {followed ? "Following" : "Follow"}
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -143,6 +224,9 @@ export default function OnboardingPage() {
         )}
 
         {/* Navigation */}
+        {loadError && (
+          <p className="mb-4 text-sm text-[#B71C1C]">{loadError}</p>
+        )}
         <div className="mt-8 flex items-center justify-between">
           {step > 1 ? (
             <Button variant="outline" onClick={() => setStep(step - 1)}>

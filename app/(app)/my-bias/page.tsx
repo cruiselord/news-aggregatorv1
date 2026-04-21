@@ -1,252 +1,228 @@
-"use client"
-
-import { useState } from "react"
-import Link from "next/link"
-import { BookOpen, Target, BarChart3, AlertTriangle, ArrowRight } from "lucide-react"
+import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { sources, stories } from "@/lib/mock-data"
-import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts"
+import { AlertCircle, TrendingUp, BookOpen } from "lucide-react"
+import { MediaDietTracker } from "@/components/media-diet-tracker"
 
-const dateRanges = ["Last 7 days", "30 days", "All time"]
-
-const pieData = [
-  { name: "Pro-Gov", value: 22, fill: "#1565C0" },
-  { name: "Independent", value: 61, fill: "#2E7D32" },
-  { name: "Opposition", value: 17, fill: "#B71C1C" },
-]
-
-const topicData = [
-  { name: "Politics", value: 45 },
-  { name: "Economy", value: 22 },
-  { name: "Sports", value: 18 },
-  { name: "Other", value: 15 },
-]
-
-const topSources = [
-  { rank: 1, name: "Premium Times", bias: "independent", articles: 12 },
-  { rank: 2, name: "Punch", bias: "independent", articles: 9 },
-  { rank: 3, name: "Channels TV", bias: "independent", articles: 8 },
-  { rank: 4, name: "Daily Trust", bias: "pro-gov", articles: 6 },
-  { rank: 5, name: "Sahara Reporters", bias: "opposition", articles: 5 },
-]
-
-const biasColorMap: Record<string, { bg: string; text: string }> = {
-  "pro-gov": { bg: "bg-[#1565C0]/10", text: "text-[#1565C0]" },
-  independent: { bg: "bg-[#2E7D32]/10", text: "text-[#2E7D32]" },
-  opposition: { bg: "bg-[#B71C1C]/10", text: "text-[#B71C1C]" },
+export const metadata = {
+  title: "My Bias | NaijaPulse",
+  description: "Track your media diet and understand your reading patterns",
 }
 
-const blindspotStories = stories.filter((s) => s.isBlindspot).slice(0, 3)
+// Demo stats - in production, fetch from authenticated user
+const DEMO_STATS = {
+  proGov: 15,
+  independent: 28,
+  opposition: 12,
+  totalArticles: 55,
+  sourcesReadCount: 8,
+  sourcesRead: new Set(),
+  percentages: {
+    proGov: 27,
+    independent: 51,
+    opposition: 22,
+  },
+}
 
 export default function MyBiasPage() {
-  const [dateRange, setDateRange] = useState("Last 7 days")
+  const stats = DEMO_STATS
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Your Naija Media Diet</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Understand your reading habits and bias exposure
+      <div className="border-b border-border bg-card/50 backdrop-blur">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground">Your Reading Balance</h1>
+          <p className="mt-2 text-base text-muted-foreground">
+            Understand your media consumption patterns and diversify your news diet
           </p>
         </div>
-        <div className="flex gap-1">
-          {dateRanges.map((range) => (
-            <button
-              key={range}
-              onClick={() => setDateRange(range)}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                dateRange === range ? "bg-[#008751] text-[#ffffff]" : "bg-secondary text-foreground hover:bg-accent"
-              }`}
-            >
-              {range}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* Row 1 — Stat Boxes */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <BookOpen className="h-4 w-4" /> Articles Read
-          </div>
-          <p className="mt-2 text-3xl font-bold text-foreground">47</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Target className="h-4 w-4" /> Your Bias
-          </div>
-          <p className="mt-2 text-lg font-bold text-[#2E7D32]">Lean Independent</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <BarChart3 className="h-4 w-4" /> Factuality Avg
-          </div>
-          <p className="mt-2 text-3xl font-bold text-foreground">7.2<span className="text-base font-normal text-muted-foreground">/10</span></p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <AlertTriangle className="h-4 w-4 text-[#FF6D00]" /> Blindspots Missed
-          </div>
-          <p className="mt-2 text-3xl font-bold text-[#FF6D00]">12</p>
-        </div>
-      </div>
+      {/* Content */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Column */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Media Diet Tracker */}
+            <MediaDietTracker stats={stats} />
 
-      {/* Row 2 — Charts */}
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Donut Chart */}
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Your Reading Distribution
-          </h2>
-          <div className="flex items-center justify-center">
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={90}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {pieData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex justify-center gap-4 text-sm">
-            {pieData.map((entry) => (
-              <span key={entry.name} className="flex items-center gap-1.5">
-                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: entry.fill }} />
-                {entry.name} {entry.value}%
-              </span>
-            ))}
-          </div>
-          <p className="mt-3 text-center text-sm text-muted-foreground">
-            You mostly read Independent sources — consider exploring Pro-Government perspectives
-          </p>
-        </div>
+            {/* Reading History Overview */}
+            <Card className="p-6">
+              <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                Your Reading History
+              </h2>
 
-        {/* Factuality Gauge */}
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Your Factuality Score
-          </h2>
-          <div className="flex flex-col items-center justify-center">
-            <svg width="240" height="140" viewBox="0 0 240 140">
-              <path d="M 30 120 A 90 90 0 0 1 210 120" fill="none" stroke="#E5E5E5" strokeWidth="16" strokeLinecap="round" />
-              <path d="M 30 120 A 90 90 0 0 1 210 120" fill="none" stroke="#B71C1C" strokeWidth="16" strokeLinecap="round" strokeDasharray="94 283" />
-              <path d="M 30 120 A 90 90 0 0 1 210 120" fill="none" stroke="#FFD700" strokeWidth="16" strokeLinecap="round" strokeDasharray="189 283" strokeDashoffset="-94" />
-              <path d="M 30 120 A 90 90 0 0 1 210 120" fill="none" stroke="#2E7D32" strokeWidth="16" strokeLinecap="round" strokeDasharray="283 283" strokeDashoffset="-189" />
-              {/* Needle pointing to 7.2 */}
-              <line
-                x1="120"
-                y1="120"
-                x2={120 + 70 * Math.cos(Math.PI - (7.2 / 10) * Math.PI)}
-                y2={120 - 70 * Math.sin(Math.PI - (7.2 / 10) * Math.PI)}
-                stroke="#171717"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-              <circle cx="120" cy="120" r="5" fill="#171717" />
-              <text x="120" y="105" textAnchor="middle" className="fill-foreground text-2xl font-bold">7.2</text>
-            </svg>
-            <p className="mt-2 text-sm text-muted-foreground">
-              The sources you read are mostly HIGH factuality
-            </p>
-          </div>
-        </div>
-      </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="p-4 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
+                    <p className="text-xs text-red-700 dark:text-red-300 font-semibold mb-1">
+                      Pro-Government
+                    </p>
+                    <p className="text-2xl font-bold text-red-600">
+                      {stats.proGov} articles
+                    </p>
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-2">
+                      {stats.percentages.proGov}% of reading
+                    </p>
+                  </div>
 
-      {/* Row 3 — Tables */}
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-        {/* Top 5 Sources */}
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Your Top 5 Sources
-          </h2>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-xs text-muted-foreground">
-                <th className="pb-2 text-left font-medium">#</th>
-                <th className="pb-2 text-left font-medium">Outlet</th>
-                <th className="pb-2 text-left font-medium">Bias</th>
-                <th className="pb-2 text-right font-medium">Articles</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topSources.map((s) => {
-                const style = biasColorMap[s.bias]
-                return (
-                  <tr key={s.rank} className="border-b border-border">
-                    <td className="py-2.5 text-muted-foreground">{s.rank}</td>
-                    <td className="py-2.5 font-medium text-foreground">{s.name}</td>
-                    <td className="py-2.5">
-                      <Badge className={`${style.bg} ${style.text} text-xs capitalize`}>
-                        {s.bias.replace("-", " ")}
-                      </Badge>
-                    </td>
-                    <td className="py-2.5 text-right text-foreground">{s.articles}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                  <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                    <p className="text-xs text-green-700 dark:text-green-300 font-semibold mb-1">
+                      Independent
+                    </p>
+                    <p className="text-2xl font-bold text-green-600">
+                      {stats.independent} articles
+                    </p>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                      {stats.percentages.independent}% of reading
+                    </p>
+                  </div>
 
-        {/* Favorite Topics */}
-        <div className="rounded-lg border border-border bg-card p-6">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-            Favorite Topics
-          </h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={topicData} layout="vertical">
-              <XAxis type="number" tick={{ fontSize: 11 }} domain={[0, 50]} />
-              <YAxis dataKey="name" type="category" tick={{ fontSize: 12 }} width={80} />
-              <Tooltip />
-              <Bar dataKey="value" fill="#008751" radius={[0, 4, 4, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-xs text-blue-700 dark:text-blue-300 font-semibold mb-1">
+                      Opposition
+                    </p>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {stats.opposition} articles
+                    </p>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                      {stats.percentages.opposition}% of reading
+                    </p>
+                  </div>
+                </div>
 
-      {/* Row 4 — Blindspots */}
-      <div className="mt-6 rounded-lg border-2 border-[#FF6D00] bg-[#FF6D00]/5 p-6">
-        <h2 className="mb-4 flex items-center gap-2 text-lg font-bold text-foreground">
-          <AlertTriangle className="h-5 w-5 text-[#FF6D00]" />
-          Your Reading Blindspots
-        </h2>
-        <div className="flex flex-col gap-3">
-          {blindspotStories.map((story) => (
-            <div key={story.id} className="flex items-center justify-between rounded-md bg-card p-3 border border-border">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">{story.headline}</p>
-                <p className="text-xs text-muted-foreground">
-                  You only read {story.blindspotSide} coverage
-                </p>
+                <div className="p-4 bg-muted/50 rounded-lg border border-border">
+                  <p className="text-sm text-foreground">
+                    <span className="font-semibold">{stats.totalArticles}</span> articles read from{" "}
+                    <span className="font-semibold">{stats.sourcesReadCount}</span> sources in the
+                    last 7 days
+                  </p>
+                </div>
               </div>
-              <Link href={`/story/${story.id}`} className="ml-4 flex shrink-0 items-center gap-1 text-sm font-medium text-[#008751] hover:underline">
-                Read the other side <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          ))}
+            </Card>
+
+            {/* Tips & Recommendations */}
+            <Card className="p-6">
+              <h2 className="text-lg font-bold text-foreground mb-4">Recommendations</h2>
+
+              <div className="space-y-4">
+                {stats.percentages.independent < 40 && (
+                  <div className="rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-4 flex gap-3">
+                    <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-blue-900 dark:text-blue-200">
+                        Increase Independent Coverage
+                      </p>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                        You're reading mostly politically aligned sources. Independent media outlets
+                        can help you see stories from multiple angles.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-lg bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 p-4 flex gap-3">
+                  <TrendingUp className="h-5 w-5 text-purple-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-purple-900 dark:text-purple-200">
+                      Diversify Your Sources
+                    </p>
+                    <p className="text-sm text-purple-700 dark:text-purple-300 mt-1">
+                      Reading from {stats.sourcesReadCount < 5 ? "more" : "varied"} sources helps prevent
+                      echo chambers and ensures you see stories from different perspectives.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 p-4">
+                  <p className="font-semibold text-green-900 dark:text-green-200 mb-2">
+                    💡 Pro Tip
+                  </p>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    Next time you read an article, try reading the same story from outlets with
+                    different perspectives. You'll notice how the framing, headlines, and emphasis
+                    change based on editorial bias.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Understanding Media Bias */}
+            <Card className="p-6 bg-gradient-to-br from-slate-50 to-gray-100 dark:from-slate-950 dark:to-gray-900">
+              <h3 className="font-bold text-foreground mb-4">Understanding Media Bias</h3>
+
+              <div className="space-y-3 text-sm">
+                <div>
+                  <Badge className="bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 mb-1">
+                    🔴 Pro-Government
+                  </Badge>
+                  <p className="text-muted-foreground text-xs">
+                    Outlets aligned with current government policies and statements
+                  </p>
+                </div>
+
+                <div>
+                  <Badge className="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200 mb-1">
+                    🟢 Independent
+                  </Badge>
+                  <p className="text-muted-foreground text-xs">
+                    Outlets that strive for balanced coverage across political spectrum
+                  </p>
+                </div>
+
+                <div>
+                  <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 mb-1">
+                    🔵 Opposition
+                  </Badge>
+                  <p className="text-muted-foreground text-xs">
+                    Outlets that critique government and promote opposition ideas
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {/* Balanced Reading Goal */}
+            <Card className="p-6">
+              <h3 className="font-bold text-foreground mb-4">Balanced Reading Goal</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                A healthy media diet includes perspectives from all sides:
+              </p>
+
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold">Pro-Government</span>
+                  <span className="text-xs text-muted-foreground">25-35%</span>
+                </div>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-red-500" style={{ width: "30%" }} />
+                </div>
+
+                <div className="flex justify-between items-center mt-3">
+                  <span className="font-semibold">Independent</span>
+                  <span className="text-xs text-muted-foreground">40-50%</span>
+                </div>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-green-500" style={{ width: "45%" }} />
+                </div>
+
+                <div className="flex justify-between items-center mt-3">
+                  <span className="font-semibold">Opposition</span>
+                  <span className="text-xs text-muted-foreground">20-30%</span>
+                </div>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500" style={{ width: "25%" }} />
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground mt-4 italic">
+                This ensures you understand all perspectives on major issues.
+              </p>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

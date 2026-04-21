@@ -1,18 +1,71 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Progress } from "@/components/ui/progress"
-import { topics, sources } from "@/lib/mock-data"
+import { supabase } from "@/lib/supabaseClient"
+import type { BiasType } from "@/lib/types"
 
-const biasColors: Record<string, string> = {
+type TopicRow = {
+  id: string
+  name: string
+  slug: string
+  icon: string | null
+}
+
+type SourceRow = {
+  id: string
+  name: string
+  bias_label: string | null
+}
+
+const biasColors: Record<BiasType, string> = {
   "pro-gov": "bg-[#1565C0]",
   independent: "bg-[#2E7D32]",
   opposition: "bg-[#B71C1C]",
 }
 
+import { classifyBias } from "@/lib/utils"
+
 export function LeftSidebar() {
   const pathname = usePathname()
+  const [topics, setTopics] = useState<TopicRow[]>([])
+  const [sources, setSources] = useState<Array<SourceRow & { bias: BiasType }>>(
+    []
+  )
+
+  useEffect(() => {
+    async function load() {
+      const [{ data: topicRows }, { data: sourceRows }] = await Promise.all([
+        supabase
+          .from("topics")
+          .select("id, name, slug, icon")
+          .order("name", { ascending: true }),
+        supabase.from("sources").select("id, name, bias_label"),
+      ])
+
+      setTopics(
+        (topicRows ?? []).map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          slug: t.slug,
+          icon: t.icon,
+        }))
+      )
+
+      setSources(
+        (sourceRows ?? []).map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          bias_label: s.bias_label,
+          bias: classifyBias(s.bias_label),
+        }))
+      )
+    }
+
+    load()
+  }, [])
 
   return (
     <aside className="sticky top-16 hidden h-[calc(100vh-4rem)] w-60 shrink-0 overflow-y-auto border-r border-border bg-secondary p-4 lg:block">
@@ -24,7 +77,7 @@ export function LeftSidebar() {
           {topics.map((topic) => {
             const isActive = pathname === `/topic/${topic.slug}`
             return (
-              <li key={topic.slug}>
+              <li key={topic.id}>
                 <Link
                   href={`/topic/${topic.slug}`}
                   className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent ${
@@ -33,7 +86,7 @@ export function LeftSidebar() {
                       : "text-foreground"
                   }`}
                 >
-                  <span>{topic.icon}</span>
+                  <span>{topic.icon ?? "•"}</span>
                   <span>{topic.name}</span>
                 </Link>
               </li>

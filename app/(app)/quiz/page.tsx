@@ -1,17 +1,72 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Share2, Home, Trophy } from "lucide-react"
-import { quizQuestions } from "@/lib/mock-data"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
 
+interface QuizQuestion {
+  question: string
+  options: [string, string, string, string]
+  correct: number
+  explanation: string
+  topic?: string
+}
+
 export default function QuizPage() {
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([])
+  const [loading, setLoading] = useState(true)
   const [currentQ, setCurrentQ] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
   const [score, setScore] = useState(0)
   const [finished, setFinished] = useState(false)
+
+  useEffect(() => {
+    async function loadQuiz() {
+      try {
+        const res = await fetch('/api/quiz/generate')
+        if (res.ok) {
+          const data = await res.json()
+          if (data?.questions) {
+            // map to expected shape with numeric correct index
+            setQuizQuestions(
+              data.questions.map((q: any) => ({
+                question: q.question,
+                options: q.options,
+                correct: q.correctIndex,
+                explanation: q.explanation,
+              }))
+            )
+          }
+        } else {
+          console.error('quiz generation failed', await res.text())
+        }
+      } catch (err) {
+        console.error('error fetching quiz', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadQuiz()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-6">
+        <p className="text-lg text-muted-foreground">Loading quiz…</p>
+      </div>
+    )
+  }
+
+  if (!loading && quizQuestions.length === 0) {
+    return (
+      <div className="flex items-center justify-center p-6">
+        <p className="text-lg text-muted-foreground">No quiz available right now.</p>
+      </div>
+    )
+  }
 
   const question = quizQuestions[currentQ]
   const isCorrect = selected === question?.correct

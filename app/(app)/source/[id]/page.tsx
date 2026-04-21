@@ -1,9 +1,9 @@
-"use client"
+ "use client"
 
-import { useState, use } from "react"
+import { useEffect, useState, use } from "react"
 import Link from "next/link"
 import { ExternalLink, Users } from "lucide-react"
-import { sources, stories } from "@/lib/mock-data"
+import { supabase } from "@/lib/supabaseClient"
 import { StoryCard } from "@/components/story-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -31,16 +31,176 @@ const biasHistoryData = [
   { month: "Feb", score: 46 },
 ]
 
+type SourceRow = {
+  id: string
+  name: string
+  bias_label: string | null
+  factuality_score: number | null
+  region_focus: string | null
+  ownership_type: string | null
+  website_url: string | null
+  description?: string | null
+  founded?: string | null
+}
+
+type ArticleRow = {
+  id: string
+  cluster_id: string | null
+}
+
+type StoryClusterRow = {
+  id: string
+  headline: string
+  ai_summary: string | null
+  topics: string[] | null
+  is_blindspot: boolean | null
+  blindspot_type: string | null
+  pro_gov_coverage: number | null
+  independent_coverage: number | null
+  opposition_coverage: number | null
+  article_count: number | null
+  created_at: string
+}
+
+import type { Story, BiasType } from "@/lib/types"
+
+import { classifyBias } from "@/lib/utils"
+
+function mapClusterToStory(row: StoryClusterRow): Story {
+  const biasTotal =
+    (row.pro_gov_coverage ?? 0) +
+      (row.independent_coverage ?? 0) +
+      (row.opposition_coverage ?? 0) || 1
+
+  const biasBreakdown = {
+    proGov: Math.round(((row.pro_gov_coverage ?? 0) / biasTotal) * 100),
+    independent: Math.round(
+      ((row.independent_coverage ?? 0) / biasTotal) * 100
+    ),
+    opposition: Math.round(
+      ((row.opposition_coverage ?? 0) / biasTotal) * 100
+    ),
+  }
+
+  const blindspotPercent = row.is_blindspot
+    ? Math.max(
+        biasBreakdown.proGov,
+        biasBreakdown.independent,
+        biasBreakdown.opposition
+      )
+    : undefined
+
+  return {
+    id: row.id,
+    headline: row.headline,
+    summary: row.ai_summary ?? "",
+    sourceCount: row.article_count ?? 0,
+    readTime: "5 min",
+    isBlindspot: Boolean(row.is_blindspot),
+    blindspotPercent,
+    blindspotSide: row.blindspot_type ?? undefined,
+    thumbnail: "/placeholder-news-1.jpg",
+    date: new Date(row.created_at).toLocaleDateString("en-NG", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }),
+    biasBreakdown,
+    topic: (row.topics?.[0] ?? "politics") as string,
+  }
+}
+
 export default function SourceProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [following, setFollowing] = useState(false)
+  const [source, setSource] = useState<
+    (SourceRow & { bias: BiasType; followers: number; foundedLabel: string; ownerName: string }) | null
+  >(null)
+  const [comparisons, setComparisons] = useState<
+    { id: string; name: string; bias: BiasType; factuality: number }[]
+  >([])
+  const [stories, setStories] = useState<Story[]>([])
 
-  const source = sources.find((s) => s.id === id) || sources[0]
+  useEffect(() => {
+    async function load() {
+      const { data: s } = await supabase
+        .from("sources")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle()
+
+      if (!s) return
+
+      const bias = classifyBias((s as any).bias_label)
+
+      setSource({
+        ...(s as any),
+        bias,
+        followers: 10000,
+        foundedLabel: (s as any).founded ?? "—",
+        ownerName: (s as any).owner_name ?? "",
+      })
+
+      const { data: otherSources } = await supabase
+        .from("sources")
+        .select("id, name, bias_label, factuality_score")
+        .neq("id", id)
+
+      setComparisons(
+        (otherSources ?? [])
+          .filter(
+            (row: any) =>
+              classifyBias(row.bias_label) === bias
+          )
+          .slice(0, 2)
+          .map((row: any) => ({
+            id: row.id,
+            name: row.name,
+            bias: classifyBias(row.bias_label),
+            factuality: row.factuality_score ?? 7,
+          }))
+      )
+
+      const { data: articleRows } = await supabase
+        .from("articles")
+        .select("id, cluster_id")
+        .eq("source_id", id)
+        .order("published_at", { ascending: false })
+        .limit(5)
+
+      const clusterIds = (articleRows ?? [])
+        .map((a: any) => a.cluster_id)
+        .filter(Boolean)
+
+      if (clusterIds.length > 0) {
+        const { data: clusterRows } = await supabase
+          .from("story_clusters")
+          .select("*")
+          .in("id", clusterIds as string[])
+
+        setStories(
+          (clusterRows ?? []).map((c) =>
+            mapClusterToStory(c as StoryClusterRow)
+          )
+        )
+      }
+    }
+
+    load()
+  }, [id])
+
+  if (!source) {
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold text-foreground">Source not found</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          We couldn&apos;t find that news outlet in the database.
+        </p>
+      </div>
+    )
+  }
+
   const biasStyle = biasColors[source.bias]
-
-  const comparisons = sources
-    .filter((s) => s.id !== source.id && s.bias === source.bias)
-    .slice(0, 2)
 
   return (
     <div className="flex gap-0">
@@ -54,21 +214,21 @@ export default function SourceProfilePage({ params }: { params: Promise<{ id: st
             </div>
             <div className="flex-1">
               <h1 className="text-2xl font-bold text-foreground">{source.name}</h1>
-              <a href={source.url} target="_blank" rel="noopener noreferrer" className="mt-1 flex items-center gap-1 text-sm text-[#008751] hover:underline">
-                {source.url} <ExternalLink className="h-3 w-3" />
+              <a href={source.website_url ?? "#"} target="_blank" rel="noopener noreferrer" className="mt-1 flex items-center gap-1 text-sm text-[#008751] hover:underline">
+                {source.website_url ?? "Visit website"} <ExternalLink className="h-3 w-3" />
               </a>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge className={`${biasStyle.bg} ${biasStyle.text} text-xs`}>
                   Bias: {biasStyle.label}
                 </Badge>
                 <Badge variant="secondary" className="text-xs">
-                  Factuality: {source.factuality}/10
+                  Factuality: {source.factuality_score ?? 7}/10
                 </Badge>
                 <Badge variant="secondary" className="text-xs">
-                  Region: {source.region}
+                  Region: {source.region_focus ?? "National"}
                 </Badge>
                 <Badge variant="secondary" className="text-xs">
-                  Ownership: {source.ownership}
+                  Ownership: {source.ownership_type ?? "Private"}
                 </Badge>
               </div>
               <div className="mt-3 flex items-center gap-3">
@@ -92,7 +252,7 @@ export default function SourceProfilePage({ params }: { params: Promise<{ id: st
         <div className="mt-6">
           <h2 className="mb-2 text-lg font-bold text-foreground">About</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            Founded in {source.founded}. {source.description}
+            Founded in {source.foundedLabel}. {source.description ?? ""}
           </p>
         </div>
 
@@ -102,7 +262,7 @@ export default function SourceProfilePage({ params }: { params: Promise<{ id: st
             Ownership
           </h2>
           <p className="text-sm text-foreground">
-            <span className="font-medium">{source.ownership}</span> — {source.ownerName}
+            <span className="font-medium">{source.ownership_type ?? "Private"}</span> — {source.ownerName}
           </p>
         </div>
 
@@ -182,8 +342,12 @@ export default function SourceProfilePage({ params }: { params: Promise<{ id: st
               <tbody>
                 <tr className="border-b border-border bg-[#008751]/5">
                   <td className="py-2 font-medium text-foreground">{source.name}</td>
-                  <td className="py-2 capitalize text-foreground">{source.bias.replace("-", " ")}</td>
-                  <td className="py-2 text-right text-foreground">{source.factuality}</td>
+                  <td className="py-2 capitalize text-foreground">
+                    {biasStyle.label}
+                  </td>
+                  <td className="py-2 text-right text-foreground">
+                    {source.factuality_score ?? 7}
+                  </td>
                 </tr>
                 {comparisons.map((comp) => (
                   <tr key={comp.id} className="border-b border-border">

@@ -1,18 +1,69 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Trophy, Medal, Star, ArrowUp, Flame } from "lucide-react"
-import { leaderboardUsers } from "@/lib/mock-data"
+import { supabase } from "@/lib/supabaseClient"
 import { Badge } from "@/components/ui/badge"
 
 const timeFilters = ["This Week", "This Month", "All Time"]
 
+type ProfileRow = {
+  username: string | null
+  naira_points: number | null
+  badges: any[] | null
+}
+
+type LeaderboardUser = {
+  rank: number
+  username: string
+  points: number
+  badge: string
+  avatar: string
+}
+
 export default function LeaderboardPage() {
   const [timeFilter, setTimeFilter] = useState("This Week")
+  const [users, setUsers] = useState<LeaderboardUser[]>([])
 
-  const podium = leaderboardUsers.slice(0, 3)
-  const rest = leaderboardUsers.slice(3)
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase
+        .from("user_profiles")
+        .select("username, naira_points, badges")
+        .order("naira_points", { ascending: false })
+        .limit(20)
+
+      const mapped: LeaderboardUser[] =
+        (data ?? []).map((p: ProfileRow, idx: number) => {
+          const username = p.username ?? `reader_${idx + 1}`
+          const points = p.naira_points ?? 0
+          const badge =
+            (Array.isArray(p.badges) && p.badges[0]?.label) ||
+            "Bias Buster"
+          const avatar =
+            username
+              .split("_")[0]
+              .slice(0, 2)
+              .toUpperCase() || "NP"
+
+          return {
+            rank: idx + 1,
+            username,
+            points,
+            badge,
+            avatar,
+          }
+        }) ?? []
+
+      setUsers(mapped)
+    }
+
+    load()
+  }, [])
+
+  const podium = users.slice(0, 3)
+  const rest = users.slice(3)
 
   return (
     <div className="p-6">
@@ -44,7 +95,8 @@ export default function LeaderboardPage() {
       </div>
 
       {/* Podium */}
-      <div className="mb-8 flex items-end justify-center gap-4">
+        {podium.length >= 3 && (
+          <div className="mb-8 flex items-end justify-center gap-4">
         {/* 2nd place */}
         <div className="flex w-36 flex-col items-center rounded-lg border border-border bg-card p-4">
           <Medal className="mb-2 h-6 w-6 text-[#A0A0A0]" />
@@ -77,32 +129,52 @@ export default function LeaderboardPage() {
           <p className="text-xs text-muted-foreground">{podium[2].points.toLocaleString()} NP</p>
           <Badge variant="secondary" className="mt-1 text-xs">{podium[2].badge}</Badge>
         </div>
-      </div>
+          </div>
+        )}
 
       {/* Your Position */}
-      <div className="mb-6 rounded-lg border-2 border-[#008751] bg-[#008751]/5 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-lg font-bold text-muted-foreground">#42</span>
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#008751] text-sm font-bold text-[#ffffff]">
-              AO
+      {users.length > 0 && (
+        <div className="mb-6 rounded-lg border-2 border-[#008751] bg-[#008751]/5 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {(() => {
+                const idx = users.findIndex((u) => u.username === "adegoke")
+                const self = idx >= 0 ? users[idx] : users[0]
+                const rank = idx >= 0 ? idx + 1 : 1
+                return (
+                  <>
+                    <span className="text-lg font-bold text-muted-foreground">
+                      #{rank}
+                    </span>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#008751] text-sm font-bold text-[#ffffff]">
+                      {self.avatar}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">
+                        {self.username} (You)
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {self.points} NP
+                      </p>
+                    </div>
+                  </>
+                )
+              })()}
             </div>
-            <div>
-              <p className="font-semibold text-foreground">AdaObi_Lagos (You)</p>
-              <p className="text-xs text-muted-foreground">240 NP</p>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-sm text-[#008751]">
+                <ArrowUp className="h-4 w-4" /> 5 ranks this week
+              </span>
+              <Badge className="bg-[#008751]/10 text-[#008751] text-xs">
+                Bias Buster
+              </Badge>
+              <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                <Flame className="h-4 w-4 text-[#FF6D00]" /> 7 days
+              </span>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 text-sm text-[#008751]">
-              <ArrowUp className="h-4 w-4" /> 5 ranks this week
-            </span>
-            <Badge className="bg-[#008751]/10 text-[#008751] text-xs">Bias Buster</Badge>
-            <span className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Flame className="h-4 w-4 text-[#FF6D00]" /> 7 days
-            </span>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Full Rankings Table */}
       <div className="rounded-lg border border-border bg-card">
@@ -116,7 +188,7 @@ export default function LeaderboardPage() {
             </tr>
           </thead>
           <tbody>
-            {leaderboardUsers.map((user) => (
+            {users.map((user) => (
               <tr key={user.rank} className="border-b border-border last:border-b-0 hover:bg-accent/50">
                 <td className="px-4 py-3">
                   <span className={`font-bold ${user.rank <= 3 ? "text-[#FFD700]" : "text-muted-foreground"}`}>

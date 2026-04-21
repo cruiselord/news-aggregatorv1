@@ -1,132 +1,175 @@
-"use client"
-
-import { useState } from "react"
+import { getBlindspotStories } from "@/lib/db-queries"
+import { Card } from "@/components/ui/card"
+import { AlertCircle, Eye } from "lucide-react"
 import Link from "next/link"
-import { Eye, AlertTriangle, Share2, Info } from "lucide-react"
-import { stories, sources } from "@/lib/mock-data"
-import { BiasBar } from "@/components/bias-bar"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
 
-const blindspotStories = stories.filter((s) => s.isBlindspot)
-
-const biasColorMap: Record<string, string> = {
-  "pro-gov": "bg-[#1565C0]",
-  independent: "bg-[#2E7D32]",
-  opposition: "bg-[#B71C1C]",
+export const metadata = {
+  title: "Blind Spots | NaijaPulse",
+  description: "Stories covered by only one perspective or heavily one-sided",
 }
 
-export default function BlindspotPage() {
-  const [tab, setTab] = useState("pro-gov")
+export default async function BlindspotPage() {
+  const blindspots = await getBlindspotStories(20)
 
-  const filtered = tab === "pro-gov"
-    ? blindspotStories.filter((s) => s.blindspotSide === "Pro-Government")
-    : blindspotStories.filter((s) => s.blindspotSide === "Opposition")
-
-  const allBlindspots = [...filtered, ...blindspotStories.filter((s) => !filtered.includes(s))]
+  const groupedByTopic = blindspots.reduce(
+    (acc, story) => {
+      const topic = (story.topics?.[0] || "Other") as string
+      if (!acc[topic]) acc[topic] = []
+      acc[topic].push(story)
+      return acc
+    },
+    {} as Record<string, typeof blindspots>
+  )
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3">
-          <Eye className="h-8 w-8 text-[#FF6D00]" />
-          <h1 className="text-2xl font-bold text-foreground">Naija Blindspot</h1>
+      <div className="border-b border-border bg-card/50 backdrop-blur">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="h-10 w-10 text-orange-600" />
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
+                ⚠️ Blind Spots in Coverage
+              </h1>
+              <p className="mt-2 text-base text-muted-foreground">
+                Stories that are heavily one-sided or barely covered by mainstream media
+              </p>
+            </div>
+          </div>
         </div>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Stories covered heavily by only ONE political perspective in Nigerian media
-        </p>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="pro-gov">Pro-Gov Blindspot</TabsTrigger>
-          <TabsTrigger value="opposition">Opposition Blindspot</TabsTrigger>
-        </TabsList>
+      {/* Content */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Info Card */}
+        <Card className="mb-8 p-6 border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
+          <h2 className="font-bold text-foreground mb-2">What's a Blind Spot?</h2>
+          <p className="text-sm text-muted-foreground mb-3">
+            A "blind spot" in media coverage occurs when:
+          </p>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex gap-2">
+              <span className="shrink-0">📊</span>
+              <span>
+                <strong>Underreported stories:</strong> Important news covered by fewer than 30% of media outlets
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="shrink-0">🔄</span>
+              <span>
+                <strong>One-sided coverage:</strong> A story covered by 70%+ from a single perspective
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="shrink-0">⚖️</span>
+              <span>
+                <strong>Missing balance:</strong> News that lacks viewpoints from pro-government, independent, or opposition outlets
+              </span>
+            </li>
+          </ul>
+        </Card>
 
-        <TabsContent value={tab} className="mt-4">
-          <div className="flex flex-col gap-4">
-            {allBlindspots.map((story) => (
-              <Link key={story.id} href={`/story/${story.id}`}>
-                <article className="rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-md border-l-4 border-l-[#FF6D00]">
-                  <h3 className="text-base font-semibold text-foreground">
-                    {story.headline}
-                  </h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{story.summary}</p>
+        {/* Blind Spots by Topic */}
+        {Object.entries(groupedByTopic).length === 0 ? (
+          <Card className="p-12 text-center">
+            <Eye className="h-12 w-12 text-green-600 mx-auto mb-4" />
+            <p className="text-lg font-semibold text-foreground">No Major Blind Spots Detected</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Today's coverage appears well-balanced across different perspectives. Great job consuming diverse media!
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-8">
+            {Object.entries(groupedByTopic).map(([topic, stories]) => (
+              <div key={topic}>
+                <h2 className="text-2xl font-bold text-foreground mb-4 capitalize">
+                  {topic} ({stories.length})
+                </h2>
 
-                  <div className="mt-3 flex items-center gap-2">
-                    <Badge className="bg-[#FF6D00] text-[#ffffff] text-xs">
-                      <AlertTriangle className="mr-1 h-3 w-3" />
-                      {story.blindspotPercent}% {story.blindspotSide} Coverage
-                    </Badge>
-                  </div>
+                <div className="grid gap-4">
+                  {stories.map((story) => {
+                    const total =
+                      (story.pro_gov_coverage ?? 0) +
+                      (story.independent_coverage ?? 0) +
+                      (story.opposition_coverage ?? 0) || 1
 
-                  <div className="mt-3">
-                    <BiasBar
-                      proGov={story.biasBreakdown.proGov}
-                      independent={story.biasBreakdown.independent}
-                      opposition={story.biasBreakdown.opposition}
-                      size="md"
-                      showLabels
-                    />
-                  </div>
+                    const maxCoverage = Math.max(
+                      story.pro_gov_coverage ?? 0,
+                      story.independent_coverage ?? 0,
+                      story.opposition_coverage ?? 0
+                    )
 
-                  <div className="mt-3 text-xs text-muted-foreground">
-                    Missing perspectives: {story.blindspotSide === "Pro-Government"
-                      ? "2 opposition outlets NOT covering this"
-                      : "3 pro-government outlets NOT covering this"}
-                  </div>
+                    const dominant = Math.round((maxCoverage / total) * 100)
 
-                  <div className="mt-2">
-                    <p className="text-xs font-medium text-muted-foreground">Who is covering:</p>
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      {sources.slice(0, 4).map((source) => (
-                        <span key={source.id} className="flex items-center gap-1 text-xs text-foreground">
-                          <span className={`h-2 w-2 rounded-full ${biasColorMap[source.bias]}`} />
-                          {source.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                    let dominantPerspective = ""
+                    if (story.pro_gov_coverage === maxCoverage) dominantPerspective = "Pro-Government"
+                    else if (story.opposition_coverage === maxCoverage) dominantPerspective = "Opposition"
+                    else dominantPerspective = "Independent"
 
-                  <div className="mt-3">
-                    <span className="text-sm font-medium text-[#008751]">
-                      See all coverage →
-                    </span>
-                  </div>
-                </article>
-              </Link>
+                    return (
+                      <Link key={story.id} href={`/story/${story.id}`}>
+                        <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
+                          <div className="space-y-3">
+                            {/* Headline */}
+                            <h3 className="text-lg font-semibold text-foreground hover:text-orange-600 transition-colors">
+                              {story.headline}
+                            </h3>
+
+                            {/* Coverage Analysis */}
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">
+                                  {dominant}% coverage dominated by <strong>{dominantPerspective}</strong>
+                                </span>
+                                <span className="font-semibold text-orange-600">Coverage Gap</span>
+                              </div>
+
+                              <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-orange-500"
+                                  style={{ width: `${dominant}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Coverage Breakdown */}
+                            <div className="grid grid-cols-3 gap-2 text-xs">
+                              <div className="p-2 bg-red-100 dark:bg-red-900 rounded">
+                                <p className="text-red-700 dark:text-red-300 font-semibold">
+                                  {story.pro_gov_coverage ?? 0}
+                                </p>
+                                <p className="text-red-600 dark:text-red-400 text-xs">Pro-Gov</p>
+                              </div>
+                              <div className="p-2 bg-green-100 dark:bg-green-900 rounded">
+                                <p className="text-green-700 dark:text-green-300 font-semibold">
+                                  {story.independent_coverage ?? 0}
+                                </p>
+                                <p className="text-green-600 dark:text-green-400 text-xs">Independent</p>
+                              </div>
+                              <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded">
+                                <p className="text-blue-700 dark:text-blue-300 font-semibold">
+                                  {story.opposition_coverage ?? 0}
+                                </p>
+                                <p className="text-blue-600 dark:text-blue-400 text-xs">Opposition</p>
+                              </div>
+                            </div>
+
+                            {/* Call to Action */}
+                            <p className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+                              Read {story.article_count || 0} perspectives →
+                            </p>
+                          </div>
+                        </Card>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
             ))}
           </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Right-sidebar-style widgets inline for this page */}
-      <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-            <Info className="h-4 w-4 text-[#FF6D00]" /> Why Blindspots Matter
-          </h3>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            When a story is only told from one perspective, you miss important context.
-            NaijaPulse helps you see what{"'"}s being left out of the conversation.
-          </p>
-        </div>
-
-        <div className="rounded-lg border border-border bg-card p-4">
-          <h3 className="mb-2 text-sm font-semibold text-foreground">Your Blindspot Score</h3>
-          <p className="text-3xl font-bold text-[#FF6D00]">72</p>
-          <p className="text-xs text-muted-foreground">out of 100 this week — good reading balance</p>
-        </div>
-
-        <div className="rounded-lg border border-border bg-card p-4">
-          <h3 className="mb-2 text-sm font-semibold text-foreground">Share Awareness</h3>
-          <p className="mb-3 text-sm text-muted-foreground">Help others see what they{"'"}re missing</p>
-          <Button variant="outline" size="sm" className="w-full">
-            <Share2 className="mr-2 h-4 w-4" /> Share Blindspot Report
-          </Button>
-        </div>
+        )}
       </div>
     </div>
   )

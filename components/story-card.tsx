@@ -1,8 +1,9 @@
 import Link from "next/link"
+import Image from "next/image"
 import { Clock, Eye } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { BiasBar } from "@/components/bias-bar"
-import type { Story } from "@/lib/mock-data"
+import type { Story } from "@/lib/types"
 
 interface StoryCardProps {
   story: Story
@@ -12,10 +13,19 @@ export function StoryCard({ story }: StoryCardProps) {
   return (
     <Link href={`/story/${story.id}`}>
       <article className="flex gap-4 rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-md">
-        <div className="hidden h-[130px] w-[200px] shrink-0 overflow-hidden rounded-md bg-muted sm:block">
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#008751]/20 to-[#008751]/5 text-xs text-muted-foreground">
-            {story.topic}
-          </div>
+        <div className="hidden h-[130px] w-[200px] shrink-0 overflow-hidden rounded-md bg-muted sm:block relative">
+          {story.thumbnail && story.thumbnail !== "/placeholder-news-1.jpg" ? (
+            <Image
+              src={story.thumbnail}
+              alt={story.headline}
+              fill
+              className="object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#008751]/20 to-[#008751]/5 text-xs text-muted-foreground">
+              {story.topic}
+            </div>
+          )}
         </div>
         <div className="flex flex-1 flex-col justify-between">
           <div>

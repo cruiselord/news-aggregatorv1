@@ -1,9 +1,9 @@
-"use client"
+ "use client"
 
-import { use } from "react"
+import { use, useEffect, useState } from "react"
 import Link from "next/link"
 import { Bell, Users, TrendingUp } from "lucide-react"
-import { timelineEvents } from "@/lib/mock-data"
+import { supabase } from "@/lib/supabaseClient"
 import { BiasBar } from "@/components/bias-bar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -41,8 +41,52 @@ const dotColors: Record<string, string> = {
   crisis: "bg-[#B71C1C]",
 }
 
+type TimelineRow = {
+  id: string
+  title: string
+  slug: string
+  description: string | null
+}
+
+type TimelineEventRow = {
+  id: string
+  event_date: string
+  event_summary: string
+  event_type: string | null
+  pro_gov_coverage: number | null
+  independent_coverage: number | null
+  opposition_coverage: number | null
+  article_count: number | null
+}
+
 export default function TimelinePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params)
+
+  const [timeline, setTimeline] = useState<TimelineRow | null>(null)
+  const [events, setEvents] = useState<TimelineEventRow[]>([])
+
+  useEffect(() => {
+    async function load() {
+      const { data: t } = await supabase
+        .from("story_timelines")
+        .select("*")
+        .eq("slug", slug)
+        .maybeSingle()
+
+      if (!t) return
+      setTimeline(t as TimelineRow)
+
+      const { data: ev } = await supabase
+        .from("timeline_events")
+        .select("*")
+        .eq("timeline_id", (t as any).id)
+        .order("event_date", { ascending: false })
+
+      setEvents((ev ?? []) as TimelineEventRow[])
+    }
+
+    load()
+  }, [slug])
 
   return (
     <div className="flex gap-0">
@@ -50,9 +94,12 @@ export default function TimelinePage({ params }: { params: Promise<{ slug: strin
       <div className="flex-1 p-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-foreground text-balance">2027 Election Coverage</h1>
+          <h1 className="text-2xl font-bold text-foreground text-balance">
+            {timeline?.title ?? "Story Timeline"}
+          </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Jan 15 – Feb 28, 2026 · 156 articles · 23 sources · 8 weeks
+            {timeline?.description ??
+              "Key events and coverage for this long-running story in Nigeria."}
           </p>
         </div>
 
@@ -62,32 +109,41 @@ export default function TimelinePage({ params }: { params: Promise<{ slug: strin
           <div className="absolute left-[100px] top-0 bottom-0 w-0.5 bg-[#008751]/30" />
 
           <div className="flex flex-col gap-8">
-            {timelineEvents.map((event, i) => (
+            {events.map((event, i) => (
               <div key={i} className="relative flex gap-6">
                 {/* Date */}
                 <div className="w-[84px] shrink-0 pt-1 text-right">
-                  <p className="text-sm font-bold text-[#008751]">{event.date.split(",")[0]}</p>
-                  <p className="text-xs text-muted-foreground">{event.date.split(", ")[1]}</p>
+                  <p className="text-sm font-bold text-[#008751]">
+                    {new Date(event.event_date).toLocaleDateString("en-NG", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(event.event_date).toLocaleDateString("en-NG", {
+                      year: "numeric",
+                    })}
+                  </p>
                 </div>
 
                 {/* Dot */}
                 <div className="relative z-10 mt-1.5 flex items-start justify-center">
-                  <div className={`h-4 w-4 rounded-full border-2 border-card ${dotColors[event.status]}`} />
+                  <div className={`h-4 w-4 rounded-full border-2 border-card ${dotColors[event.event_type ?? "neutral"]}`} />
                 </div>
 
                 {/* Event Card */}
                 <div className="flex-1 rounded-lg border border-border bg-card p-4 shadow-sm">
                   <p className="text-sm font-semibold text-foreground">
-                    {event.title}
+                    {event.event_summary}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {event.coverageCount} sources covered this
+                    {event.article_count ?? 0} sources covered this
                   </p>
                   <div className="mt-3">
                     <BiasBar
-                      proGov={event.biasBreakdown.proGov}
-                      independent={event.biasBreakdown.independent}
-                      opposition={event.biasBreakdown.opposition}
+                      proGov={event.pro_gov_coverage ?? 0}
+                      independent={event.independent_coverage ?? 0}
+                      opposition={event.opposition_coverage ?? 0}
                       size="sm"
                       showLabels
                     />

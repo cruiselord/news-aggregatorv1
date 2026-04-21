@@ -1,15 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Search as SearchIcon, X } from "lucide-react"
 import { Input } from "@/components/ui/input"
-import { stories, sources, topics, trendingItems } from "@/lib/mock-data"
+import { supabase } from "@/lib/supabaseClient"
 import { StoryCard } from "@/components/story-card"
 import { BiasBar } from "@/components/bias-bar"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
+import type { Story, BiasType } from "@/lib/types"
 
 const dateFilters = ["Last 24h", "Last week", "Last month", "Custom range"]
 const biasFilters = ["All", "Pro-Gov", "Independent", "Opposition"]
@@ -18,6 +19,120 @@ export default function SearchPage() {
   const [query, setQuery] = useState("")
   const [activeDate, setActiveDate] = useState("Last week")
   const [activeBias, setActiveBias] = useState("All")
+
+  const [stories, setStories] = useState<Story[]>([])
+  const [sources, setSources] = useState<
+    { id: string; name: string; bias: BiasType; factuality: number }[]
+  >([])
+  const [topics, setTopics] = useState<
+    { id: string; name: string; slug: string; icon: string | null; storyCount: number }[]
+  >([])
+  const [trendingItems, setTrendingItems] = useState<
+    { topic: string; articleCount: number }[]
+  >([])
+
+  useEffect(() => {
+    async function load() {
+      const [{ data: clusters }, { data: sourceRows }, { data: topicRows }] =
+        await Promise.all([
+          supabase
+            .from("story_clusters")
+            .select("*")
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("sources")
+            .select("id, name, bias_label, factuality_score"),
+          supabase
+            .from("topics")
+            .select("id, name, slug, icon, article_count"),
+        ])
+
+      setStories(
+        (clusters ?? []).map((row: any) => {
+          const biasTotal =
+            (row.pro_gov_coverage ?? 0) +
+              (row.independent_coverage ?? 0) +
+              (row.opposition_coverage ?? 0) || 1
+
+          const biasBreakdown = {
+            proGov: Math.round(((row.pro_gov_coverage ?? 0) / biasTotal) * 100),
+            independent: Math.round(
+              ((row.independent_coverage ?? 0) / biasTotal) * 100
+            ),
+            opposition: Math.round(
+              ((row.opposition_coverage ?? 0) / biasTotal) * 100
+            ),
+          }
+
+          const blindspotPercent = row.is_blindspot
+            ? Math.max(
+                biasBreakdown.proGov,
+                biasBreakdown.independent,
+                biasBreakdown.opposition
+              )
+            : undefined
+
+          return {
+            id: row.id,
+            headline: row.headline,
+            summary: row.ai_summary ?? "",
+            sourceCount: row.article_count ?? 0,
+            readTime: "5 min",
+            isBlindspot: Boolean(row.is_blindspot),
+            blindspotPercent,
+            blindspotSide: row.blindspot_type ?? undefined,
+            thumbnail: row.image_url ?? "/placeholder-news-1.jpg",
+            date: new Date(row.created_at).toLocaleDateString("en-NG", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            }),
+            biasBreakdown,
+            topic: (row.topics?.[0] ?? "politics") as string,
+          } as Story
+        })
+      )
+
+      setSources(
+        (sourceRows ?? []).map((s: any) => {
+          const label = (s.bias_label ?? "").toLowerCase()
+          let bias: BiasType = "independent"
+          if (label.includes("pro-federal") || label.includes("pro-gov"))
+            bias = "pro-gov"
+          else if (label.includes("opposition")) bias = "opposition"
+
+          return {
+            id: s.id,
+            name: s.name,
+            bias,
+            factuality: s.factuality_score ?? 7,
+          }
+        })
+      )
+
+      setTopics(
+        (topicRows ?? []).map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          slug: t.slug,
+          icon: t.icon,
+          storyCount: t.article_count ?? 0,
+        }))
+      )
+
+      setTrendingItems(
+        (clusters ?? [])
+          .map((c: any) => ({
+            topic: c.headline as string,
+            articleCount: c.article_count ?? 0,
+          }))
+          .sort((a: any, b: any) => b.articleCount - a.articleCount)
+          .slice(0, 8)
+      )
+    }
+
+    load()
+  }, [])
 
   const filteredStories = query
     ? stories.filter(
