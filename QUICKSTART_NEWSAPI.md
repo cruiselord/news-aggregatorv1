@@ -18,14 +18,14 @@
 ### Local Development
 Edit `.env.local` and add:
 ```
-NEXT_PUBLIC_NEWS_API_KEY=your_key_here
+NEWS_API_KEY=your_key_here
 ```
 
 ### Production (Vercel)
 1. Go to **vercel.com** → Your project
 2. Click **Settings** → **Environment Variables**
 3. Add new:
-   - Name: `NEXT_PUBLIC_NEWS_API_KEY`
+   - Name: `NEWS_API_KEY` (server-only)
    - Value: `your_key_here`
 4. Click **Save**
 
@@ -151,7 +151,7 @@ vercel logs --follow
 ✗ Error: NEWS_API_KEY not set
 
 Solution:
-1. Check .env.local has: NEXT_PUBLIC_NEWS_API_KEY=your_key
+1. Check .env.local has: NEWS_API_KEY=your_key
 2. Restart dev server
 3. Try again
 ```

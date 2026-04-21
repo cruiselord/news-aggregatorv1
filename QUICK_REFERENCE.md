@@ -11,7 +11,7 @@
 ### 2. Configure Project
 ```bash
 # Edit .env.local - add this line:
-NEXT_PUBLIC_NEWS_API_KEY=your_key_here
+NEWS_API_KEY=your_key_here
 ```
 
 ### 3. Test Locally
@@ -102,7 +102,7 @@ curl "https://newsapi.org/v2/everything?q=Nigeria&apiKey=YOUR_KEY"
 ### Local (`.env.local`)
 ```
 # NewsAPI free tier key (required)
-NEXT_PUBLIC_NEWS_API_KEY=your_key_from_newsapi.org
+NEWS_API_KEY=your_key_from_newsapi.org
 
 # Cron secret (for security)
 CRON_SECRET=any_random_string_you_choose
@@ -117,7 +117,7 @@ SUPABASE_SERVICE_ROLE_KEY=your_key
 Settings → Environment Variables
 
 Add:
-- NEXT_PUBLIC_NEWS_API_KEY = your_newsapi_key
+- NEWS_API_KEY = your_newsapi_key (server-only)
 - CRON_SECRET = your_random_secret
 ```
 
@@ -256,12 +256,12 @@ npm run dev 2>&1 | grep ERROR
 ## ✅ Deployment Checklist
 
 - [ ] NewsAPI key obtained from newsapi.org
-- [ ] `.env.local` has `NEXT_PUBLIC_NEWS_API_KEY`
+- [ ] `.env.local` has `NEWS_API_KEY` (server-only)
 - [ ] Local test passes: `npx tsx scripts/run-scrape-test.ts`
 - [ ] Build succeeds: `npm run build`
 - [ ] Homepage shows April 2026 news
 - [ ] Admin dashboard works (login with admin123)
-- [ ] Vercel env vars set (NEXT_PUBLIC_NEWS_API_KEY, CRON_SECRET)
+- [ ] Vercel env vars set (NEWS_API_KEY, CRON_SECRET)
 - [ ] Pushed to git: `git push origin main`
 - [ ] Vercel build succeeded
 - [ ] Cron job scheduled (check `vercel.json`)

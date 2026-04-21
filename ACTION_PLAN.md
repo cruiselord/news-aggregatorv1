@@ -25,7 +25,7 @@
 
 2. **Add to `.env.local`**:
    ```
-   NEXT_PUBLIC_NEWS_API_KEY=your_key_here
+   NEWS_API_KEY=your_key_here
    ```
 
 3. **Test locally**:

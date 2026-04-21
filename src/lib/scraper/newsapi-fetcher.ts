@@ -27,9 +27,10 @@ const NEWS_API_BASE = 'https://newsapi.org/v2';
 
 /**
  * Get NewsAPI key - lazy loaded to ensure env vars are available
+ * NOTE: Uses NEWS_API_KEY (server-only), never expose NEXT_PUBLIC version
  */
 function getNewsAPIKey(): string | null {
-  const key = process.env.NEXT_PUBLIC_NEWS_API_KEY || process.env.NEWS_API_KEY;
+  const key = process.env.NEWS_API_KEY;
   return key || null;
 }
 

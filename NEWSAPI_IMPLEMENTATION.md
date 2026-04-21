@@ -103,7 +103,7 @@ We've integrated **NewsAPI.org** (free tier) into your scraper, giving you:
 ### Step 2: Configure Locally (2 min)
 Edit `.env.local`:
 ```
-NEXT_PUBLIC_NEWS_API_KEY=your_key_here
+NEWS_API_KEY=your_key_here
 ```
 
 ### Step 3: Test (5 min)
@@ -280,7 +280,7 @@ Shows:
 ### "NewsAPI not configured"
 ```
 Solution:
-1. Verify .env.local has NEXT_PUBLIC_NEWS_API_KEY=your_key
+1. Verify .env.local has NEWS_API_KEY=your_key
 2. Restart dev server (Ctrl+C, then npm run dev)
 3. Try again
 ```

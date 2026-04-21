@@ -23,7 +23,7 @@
 
 Add this line to your `.env.local` file:
 ```
-NEXT_PUBLIC_NEWS_API_KEY=your_api_key_here
+NEWS_API_KEY=your_api_key_here
 ```
 
 Replace `your_api_key_here` with your actual NewsAPI key.
@@ -34,7 +34,7 @@ Replace `your_api_key_here` with your actual NewsAPI key.
 1. Go to your project settings
 2. Environment Variables
 3. Add new variable:
-   - Name: `NEXT_PUBLIC_NEWS_API_KEY`
+   - Name: `NEWS_API_KEY` (server-only)
    - Value: `your_api_key_here`
 4. Deploy
 
@@ -104,7 +104,7 @@ When you click "Run RSS Scrape" or cron job runs:
 
 ### "NEWS_API_KEY not configured"
 - **Solution**: Make sure env variable is set in `.env.local`
-- **Check**: `echo $NEXT_PUBLIC_NEWS_API_KEY` in terminal
+- **Check**: `echo $NEWS_API_KEY` in terminal
 - **Restart**: Dev server after adding env var
 
 ### "No new articles from NewsAPI"

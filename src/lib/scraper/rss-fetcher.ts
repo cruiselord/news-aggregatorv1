@@ -135,7 +135,7 @@ export async function fetchAllFeeds(): Promise<FetchResult> {
   console.log(`[SCRAPER] RSS: ${rssCount} articles, ${rssResult.errors.length} errors`);
 
   // 2. Fetch from NewsAPI (free tier)
-  if (process.env.NEXT_PUBLIC_NEWS_API_KEY || process.env.NEWS_API_KEY) {
+  if (process.env.NEWS_API_KEY) {
     console.log('[SCRAPER] Fetching from NewsAPI...');
     const newsapiResult = await fetchFromNewsAPI();
     newsapiCount = newsapiResult.newArticles;
